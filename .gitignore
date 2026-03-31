@@ -1,0 +1,16 @@
+# Entornos virtuales de Python
+venv/
+env/
+__pycache__/
+
+# Dependencias de Node (Frontend)
+node_modules/
+dist/
+
+# Archivos de entorno y secretos (¡NUNCA subas contraseñas o tokens!)
+.env
+
+# Modelos pesados de IA (Opcional, si tu modelo pesa más de 100MB)
+*.h5
+*.pt
+*.pth
