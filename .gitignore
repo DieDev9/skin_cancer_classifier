@@ -9,10 +9,10 @@ dist
 node_modules/
 dist/
 
-# Archivos de entorno y secretos (¡NUNCA subas contraseñas o tokens!)
+# Archivos de entorno
 .env
 
-# Modelos pesados de IA (Opcional, si tu modelo pesa más de 100MB)
+# Modelos
 *.h5
 *.pt
 *.pth
