@@ -2,6 +2,8 @@
 venv/
 env/
 __pycache__/
+.env.local
+dist
 
 # Dependencias de Node (Frontend)
 node_modules/
@@ -18,3 +20,5 @@ dist/
 # Ignorar pesos del modelo pesado
 backend_api/model_weights/*.zip
 backend_api/model_weights/*.pt
+backend_api/hybrid_final.zip/*.pt
+

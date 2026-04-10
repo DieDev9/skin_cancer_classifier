@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useCasos } from "./CasosContext";
+import { createClient } from "@supabase/supabase-js";
+
+// <-- NUEVO: Inicializar Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
 
 // ── Barra de probabilidad
 const ProbabilidadBar = ({ valor, clasificacion }) => {
@@ -11,7 +18,7 @@ const ProbabilidadBar = ({ valor, clasificacion }) => {
   return (
     <div className="flex flex-col gap-1">
       <div className="flex justify-between text-xs text-gray-500">
-        <span className="uppercase tracking-wide">Probabilidad de malignidad</span>
+        <span>Probabilidad</span>
         <span className="font-bold text-gray-700">{valor ?? "—"}%</span>
       </div>
       <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
@@ -58,16 +65,19 @@ const DiagnosisPanel = () => {
   const [modo, setModo]           = useState("ver");   // "ver" | "editar"
   const [form, setForm]           = useState({});
   const [imagenActiva, setImagenActiva] = useState(null);
-  const [cargandoIA, setCargandoIA] = useState(false);
   const fileInputRef              = useRef(null);
+  const [notificacion, setNotificacion] = useState(null);
+  
+  // --- NUEVO ESTADO PARA EL MODAL DE IMAGEN ---
+  const [mostrarModal, setMostrarModal] = useState(false);
 
   // Sincronizar cuando cambia el caso
   useEffect(() => {
     if (casoSeleccionado) {
       setForm({
         descripcionLesion:    casoSeleccionado.descripcionLesion    ?? "",
-        clasificacion:        casoSeleccionado.clasificacion         ?? "Sin clasificar",
-        probabilidad:         casoSeleccionado.probabilidad          ?? "",
+        clasificacion:        casoSeleccionado.clasificacion        ?? "Sin clasificar",
+        probabilidad:         casoSeleccionado.probabilidad         ?? "",
         fechaDiagnostico:     casoSeleccionado.fechaDiagnostico      ?? "",
         diagnosticoConfirmado: casoSeleccionado.diagnosticoConfirmado ?? false,
       });
@@ -81,73 +91,119 @@ const DiagnosisPanel = () => {
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-  const handleGuardar = () => {
-    guardarDiagnostico(casoSeleccionado.id, {
-      ...form,
-      probabilidad: form.probabilidad === "" ? null : Number(form.probabilidad),
-    });
-    setModo("ver");
+const handleGuardar = async () => {
+    try {
+      // 1. Verificamos que tengamos al paciente correcto seleccionado
+      if (!casoSeleccionado || !casoSeleccionado.id) {
+        setNotificacion({ tipo: "error", texto: "No hay un paciente activo." });
+        setTimeout(() => setNotificacion(null), 4000);
+        return;
+      }
+
+      // 2. Empaquetamos los datos
+      const nuevoDiagnostico = {
+        paciente_id: casoSeleccionado.id, 
+        imagen_url: imagenActiva,
+        clasificacion: form.clasificacion,
+        probabilidad: parseFloat(form.probabilidad) || 0,
+        descripcion_medico: form.descripcionLesion || "Sin observaciones",
+        diagnostico_confirmado: form.diagnosticoConfirmado || false,
+        fecha_diagnostico: form.fechaDiagnostico || new Date().toISOString().slice(0, 10)
+      };
+
+      // 3. Enviamos a Supabase
+      const { error } = await supabase
+        .from("Diagnostico")
+        .insert(nuevoDiagnostico);
+
+      if (error) throw error;
+
+      // 4. ¡Éxito! Quitamos el alert feo y usamos tu notificación flotante
+      setModo("ver");
+      setNotificacion({ tipo: "exito", texto: "¡Historial guardado correctamente!" });
+      
+      // Ocultamos la notificación automáticamente después de 4 segundos
+      setTimeout(() => setNotificacion(null), 4000);
+
+    } catch (error) {
+      console.error("Error al guardar diagnóstico en BD:", error);
+      setNotificacion({ tipo: "error", texto: "Hubo un problema al guardar." });
+      setTimeout(() => setNotificacion(null), 4000);
+    }
   };
 
   const handleCancelar = () => {
     setForm({
       descripcionLesion:     casoSeleccionado.descripcionLesion    ?? "",
-      clasificacion:         casoSeleccionado.clasificacion         ?? "Sin clasificar",
-      probabilidad:          casoSeleccionado.probabilidad          ?? "",
+      clasificacion:         casoSeleccionado.clasificacion        ?? "Sin clasificar",
+      probabilidad:          casoSeleccionado.probabilidad         ?? "",
       fechaDiagnostico:      casoSeleccionado.fechaDiagnostico      ?? "",
       diagnosticoConfirmado: casoSeleccionado.diagnosticoConfirmado ?? false,
     });
     setModo("ver");
   };
 
-  
-// Subir imagen desde PC y consultar a la IA
-  const handleArchivoLocal = async (e) => {
+// Subir imagen a Supabase Storage y consultar a la IA
+  const handleSubirImagen = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // 1. Mostrar la imagen en pantalla inmediatamente
-    const url = URL.createObjectURL(file);
-    const nueva = { id: Date.now(), url, fecha: new Date().toISOString().slice(0, 10), esLocal: true };
-    agregarImagen(casoSeleccionado.id, nueva);
-    setImagenActiva(url);
-
-    // 2. Preparar el paquete de datos para FastAPI
-    const formData = new FormData();
-    formData.append("file", file); // "file" es el nombre exacto que espera tu backend
-
-    setCargandoIA(true);
     try {
-      // 3. Hacer la petición al puerto 8000 donde corre uvicorn
-      const response = await fetch("http://127.0.0.1:8000/predict", {
+      // --- 1. SUBIR A SUPABASE ---
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${casoSeleccionado.id}_${Date.now()}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from('imagenes_lunares')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('imagenes_lunares')
+        .getPublicUrl(fileName);
+
+      const nueva = { 
+        id: Date.now(), 
+        url: publicUrl, 
+        fecha: new Date().toISOString().slice(0, 10), 
+        esLocal: false 
+      };
+      
+      agregarImagen(casoSeleccionado.id, nueva);
+      setImagenActiva(publicUrl);
+      console.log("¡Éxito! URL en Supabase:", publicUrl);
+
+      // --- 2. CONSULTAR A TU INTELIGENCIA ARTIFICIAL ---
+      // Usamos la URL de tu .env.local (o directamente localhost si falla)
+      const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+      
+      const respuestaIA = await fetch(`${apiUrl}/predict`, {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ imagen_url: publicUrl })
       });
 
-      if (!response.ok) {
-        throw new Error("Error en el servidor de IA");
-      }
+      if (!respuestaIA.ok) throw new Error("El backend no pudo procesar la imagen");
 
-      // 4. Recibir el diagnóstico (Benigno/Maligno) y la probabilidad
-      const data = await response.json();
+      const datosIA = await respuestaIA.json();
+      console.log("¡Magia de la IA!", datosIA);
 
-      // 5. Actualizar los campos del formulario automáticamente con el resultado
+      // --- 3. ACTUALIZAR LA PANTALLA CON LOS RESULTADOS ---
       setForm((prev) => ({
         ...prev,
-        clasificacion: data.diagnostico,
-        // Convertimos el decimal (0.0000002) a porcentaje (0.00%)
-        probabilidad: (data.probabilidad_maligno * 100).toFixed(2), 
-        fechaDiagnostico: new Date().toISOString().slice(0, 10),
+        clasificacion: datosIA.diagnostico,
+        // Convertimos el 0.015 a 1.5% para que la barrita lo entienda bien
+        probabilidad: (datosIA.probabilidad_maligno * 100).toFixed(2) 
       }));
 
-      // Pasamos a modo edición para que el doctor pueda revisar y confirmar
-      setModo("editar"); 
+      setModo("editar");
 
     } catch (error) {
-      console.error("Error al consultar la IA:", error);
-      alert("Error al conectar con la IA. Asegúrate de que el backend (FastAPI) esté corriendo.");
-    } finally {
-      setCargandoIA(false);
+      console.error("Error en el proceso:", error.message);
+      alert("Hubo un error al procesar la imagen. Revisa la consola.");
     }
   };
 
@@ -203,11 +259,21 @@ const DiagnosisPanel = () => {
         )}
       </div>
 
-      {/* ── Imagen principal */}
+      {/* ── Imagen principal (AHORA CLICKABLE) */}
       <div className="flex flex-col gap-2">
-        <div className="w-full h-44 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
+        <div className="w-full h-44 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center relative group">
           {imagenActiva ? (
-            <img src={imagenActiva} alt="Lesión" className="w-full h-full object-cover" />
+            <>
+              <img src={imagenActiva} alt="Lesión" className="w-full h-full object-cover" />
+              {/* Botón flotante para ampliar */}
+              <button
+                onClick={() => setMostrarModal(true)}
+                className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-zoom-in"
+              >
+                <span className="text-3xl">🔍</span>
+                <span className="text-sm font-semibold">Click para Ampliar</span>
+              </button>
+            </>
           ) : (
             <div className="text-center text-gray-400">
               <div className="text-4xl mb-1">🖼️</div>
@@ -252,7 +318,7 @@ const DiagnosisPanel = () => {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={handleArchivoLocal}
+            onChange={handleSubirImagen}
           />
         </div>
       </div>
@@ -282,7 +348,7 @@ const DiagnosisPanel = () => {
         ) : (
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              PROBABILIDAD DE MALIGNIDAD (0-100)
+              Probabilidad (0–100)
             </label>
             <input
               type="number"
@@ -355,6 +421,54 @@ const DiagnosisPanel = () => {
           <p className="text-xs text-gray-400">Marca esta casilla para validar la sugerencia de la IA</p>
         </div>
       </label>
+
+      {/* ── ── ── ── MODAL PARA IMAGEN AMPLIADA ── ── ── ── */}
+      {mostrarModal && imagenActiva && (
+        <div 
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6 backdrop-blur-sm"
+          onClick={() => setMostrarModal(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl overflow-hidden relative max-w-4xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Cabecera del modal */}
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-bold text-gray-800">Vista Dermatoscópica</h3>
+              <button 
+                onClick={() => setMostrarModal(false)}
+                className="text-gray-500 hover:bg-gray-100 rounded-full p-1.5 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Imagen centrada y ajustada */}
+            <div className="flex-1 bg-gray-50 p-4 flex items-center justify-center overflow-auto">
+              <img 
+                src={imagenActiva} 
+                alt="Ampliación" 
+                className="max-h-[65vh] rounded-lg shadow-md border object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── NOTIFICACIÓN FLOTANTE (TOAST) ── */}
+      {notificacion && (
+        <div 
+          className={`fixed bottom-6 right-6 px-6 py-3 rounded-lg shadow-xl text-sm font-semibold text-white flex items-center gap-3 transition-all duration-500 z-50 animate-bounce
+            ${notificacion.tipo === 'exito' ? 'bg-green-600' : 'bg-red-600'}`}
+        >
+          {notificacion.tipo === 'exito' ? (
+            <span className="text-xl">✅</span>
+          ) : (
+            <span className="text-xl">⚠️</span>
+          )}
+          {notificacion.texto}
+        </div>
+      )}
 
     </aside>
   );

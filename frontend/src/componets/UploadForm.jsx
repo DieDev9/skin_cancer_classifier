@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useCasos } from "./CasosContext";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const CAMPOS_VACIOS = {
   nombre:          "",
   apellido:        "",
   fechaNacimiento: "",
-  diagnostico:     "",
+  //diagnostico:     "",
   estado:          "Activo",
   notas:           "",
 };
@@ -97,10 +102,46 @@ const UploadForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleGuardar = () => {
+const handleGuardar = async () => {
+    // Validación básica
     if (!formData.nombre.trim() || !formData.apellido.trim()) return;
-    guardarCaso(formData);
-    setModo("ver");
+
+    try {
+      // 1. Preguntar a Supabase quién es el doctor logueado en este momento
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      // Si no hay usuario o la sesión expiró, detenemos todo
+      if (authError || !user) {
+        alert("Tu sesión ha expirado o no has iniciado sesión.");
+        return;
+      }
+
+      // 2. Empaquetar los datos del paciente INCLUYENDO el user_id
+      const nuevoPaciente = {
+        nombre: formData.nombre,
+        apellido: formData.apellido,
+        fecha_nacimiento: formData.fechaNacimiento || null,
+        estado: formData.estado || "Activo",
+        user_id: user.id  // <-- ESTA ES LA LLAVE MÁGICA
+      };
+
+      // 3. Enviar a Supabase (asumiendo que así lo tenías)
+      const { data, error } = await supabase
+        .from("Pacientes")
+        .insert(nuevoPaciente)
+        .select();
+
+      if (error) throw error;
+
+      // 4. Actualizar la interfaz
+      guardarCaso(data[0]); // O como llames a tu función para actualizar el estado
+      setModo("ver");
+      
+
+    } catch (error) {
+      console.error("Error al guardar paciente:", error.message);
+      alert("Hubo un error al guardar. Revisa la consola.");
+    }
   };
 
   const handleCancelar = () => {
@@ -229,7 +270,7 @@ const UploadForm = () => {
           disabled={esLectura}
           options={["Activo", "Seguimiento", "Cerrado"]}
         />
-        <div className="col-span-2">
+        {/*<div className="col-span-2">
           <InputField
             label="Diagnóstico"
             name="diagnostico"
@@ -237,7 +278,7 @@ const UploadForm = () => {
             onChange={handleChange}
             disabled={esLectura}
           />
-        </div>
+        </div>*/}
         <div className="col-span-2">
           <TextAreaField
             label="Notas / Observaciones"
@@ -250,6 +291,7 @@ const UploadForm = () => {
       </div>
 
       {/* ── Botones guardar / cancelar (solo en modo edición o creación) */}
+      {/* ── Botones guardar / cancelar (solo en modo edición o creación) */}
       {esEdicion && (
         <div className="flex gap-3 justify-end border-t pt-4">
           <button
@@ -258,11 +300,13 @@ const UploadForm = () => {
           >
             Cancelar
           </button>
+          
+          {/* BOTÓN DINÁMICO */}
           <button
             onClick={handleGuardar}
             className="text-sm font-semibold px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors shadow"
           >
-            💾 Guardar
+            {modo === "crear" ? "➕ Crear Paciente" : "💾 Guardar Cambios"}
           </button>
         </div>
       )}

@@ -1,163 +1,139 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+import { useAuth } from "./AuthContext"; // <--- 1. IMPORTANTE: Importamos el AuthContext
 
-const CasosContext = createContext(null);
+// Inicializamos Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Un solo array con TODOS los datos: personales + diagnóstico
-export const mockCasos = [
-  {
-    // ── Datos personales (editables desde UploadForm)
-    id: 1,
-    nombre: "Juan",
-    apellido: "Pérez",
-    fechaNacimiento: "1985-04-12",
-    diagnostico: "Hipertensión",
-    estado: "Activo",
-    notas: "Paciente con presión alta controlada.",
+const CasosContext = createContext();
 
-    // ── Datos de diagnóstico de piel (editables desde DiagnosisPanel)
-    descripcionLesion: "Lesión pigmentada de bordes irregulares en antebrazo izquierdo.",
-    clasificacion: "Maligno",
-    probabilidad: 87,
-    fechaDiagnostico: "2025-02-10",
-    imagenes: [],
-    imagenPrincipal: null,
-    diagnosticoConfirmado: false,
-  },
-  {
-    id: 2,
-    nombre: "Ana",
-    apellido: "Gómez",
-    fechaNacimiento: "1990-07-23",
-    diagnostico: "Diabetes tipo 2",
-    estado: "Seguimiento",
-    notas: "Requiere control mensual de glucosa.",
-
-    descripcionLesion: "Mancha eritematosa plana en región dorsal.",
-    clasificacion: "Benigno",
-    probabilidad: 22,
-    fechaDiagnostico: "2025-03-01",
-    imagenes: [],
-    imagenPrincipal: null,
-    diagnosticoConfirmado: true,
-  },
-  {
-    id: 3,
-    nombre: "Carlos",
-    apellido: "Ruiz",
-    fechaNacimiento: "1978-11-05",
-    diagnostico: "Asma",
-    estado: "Cerrado",
-    notas: "Alta médica completada.",
-
-    descripcionLesion: "",
-    clasificacion: "Sin clasificar",
-    probabilidad: null,
-    fechaDiagnostico: "",
-    imagenes: [],
-    imagenPrincipal: null,
-    diagnosticoConfirmado: false,
-  },
-  {
-    id: 4,
-    nombre: "Laura",
-    apellido: "Martínez",
-    fechaNacimiento: "2001-02-18",
-    diagnostico: "Ansiedad",
-    estado: "Activo",
-    notas: "Terapia en curso.",
-
-    descripcionLesion: "Pápula rosada de 3mm en cuello.",
-    clasificacion: "Benigno",
-    probabilidad: 11,
-    fechaDiagnostico: "2025-01-20",
-    imagenes: [],
-    imagenPrincipal: null,
-    diagnosticoConfirmado: false,
-  },
-  {
-    id: 5,
-    nombre: "Pedro",
-    apellido: "Sánchez",
-    fechaNacimiento: "1969-09-30",
-    diagnostico: "Artritis",
-    estado: "Seguimiento",
-    notas: "Medicación ajustada recientemente.",
-
-    descripcionLesion: "Nódulo subcutáneo de bordes definidos en espalda.",
-    clasificacion: "Sin clasificar",
-    probabilidad: 54,
-    fechaDiagnostico: "2025-03-15",
-    imagenes: [],
-    imagenPrincipal: null,
-    diagnosticoConfirmado: false,
-  },
-];
+export const useCasos = () => useContext(CasosContext);
 
 export const CasosProvider = ({ children }) => {
-  const [casos, setCasos]                       = useState(mockCasos);
+  const [casos, setCasos] = useState([]); // Iniciamos con un arreglo VACÍO
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
+  
+  // 2. Traemos la información de quién está logueado
+  const { usuario } = useAuth(); 
 
-  // ── Guardar datos personales (desde UploadForm)
-  const guardarCaso = (datosCaso) => {
-    if (datosCaso.id) {
-      setCasos((prev) =>
-        prev.map((c) => (c.id === datosCaso.id ? { ...c, ...datosCaso } : c))
-      );
-      setCasoSeleccionado((prev) => ({ ...prev, ...datosCaso }));
-    } else {
-      const nuevo = {
-        ...datosCaso,
-        id: Date.now(),
-        descripcionLesion: "",
-        clasificacion: "Sin clasificar",
-        probabilidad: null,
-        fechaDiagnostico: "",
-        imagenes: [],
-        imagenPrincipal: null,
-        diagnosticoConfirmado: false,
-      };
-      setCasos((prev) => [nuevo, ...prev]);
-      setCasoSeleccionado(nuevo);
+  // --- FUNCIÓN: CARGAR Y TRADUCIR DATOS REALES ---
+  const cargarPacientes = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        setCasos([]); 
+        return;
+      }
+
+      // 1. Traer los pacientes y sus diagnósticos anidados
+      const { data, error } = await supabase
+        .from("Pacientes")
+        .select(`
+          *,
+          Diagnostico (*)
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      
+      // 2. Traductor
+      const pacientesTraduccion = data.map((paciente) => {
+        const diag = paciente.Diagnostico && paciente.Diagnostico.length > 0 
+          ? paciente.Diagnostico[0] 
+          : null;
+
+        return {
+          id: paciente.id,
+          nombre: paciente.nombre || "",
+          apellido: paciente.apellido || "",
+          fechaNacimiento: paciente.fecha_nacimiento || "", 
+          estado: paciente.estado || "Activo",
+          notas: paciente.observaciones || paciente.notas || "", 
+
+          imagenPrincipal: diag ? diag.imagen_url : null,
+          clasificacion: diag ? diag.clasificacion : "Sin clasificar",
+          probabilidad: diag ? diag.probabilidad : "", 
+          descripcionLesion: diag ? diag.descripcion_medico : "",
+          fechaDiagnostico: diag ? diag.fecha_diagnostico : "",
+          diagnosticoConfirmado: diag ? diag.diagnostico_confirmado : false,
+        };
+      });
+
+      // 3. Entregar los datos ya limpios a la interfaz
+      setCasos(pacientesTraduccion);
+
+    } catch (error) {
+      console.error("Error cargando historial:", error.message);
     }
   };
 
-  // ── Guardar datos de diagnóstico (desde DiagnosisPanel)
-  const guardarDiagnostico = (idCaso, datosDiagnostico) => {
-    setCasos((prev) =>
-      prev.map((c) => (c.id === idCaso ? { ...c, ...datosDiagnostico } : c))
-    );
-    setCasoSeleccionado((prev) => ({ ...prev, ...datosDiagnostico }));
+  // --- 3. EL NUEVO USEEFFECT INTELIGENTE ---
+  useEffect(() => {
+    if (usuario) {
+      // Si el doctor inicia sesión, carga SUS pacientes
+      cargarPacientes();
+    } else {
+      // Si el doctor cierra sesión, borramos todo de la pantalla por seguridad
+      setCasos([]);
+      setCasoSeleccionado(null);
+    }
+  }, [usuario]); // <--- React ahora vigila los cambios en 'usuario'
+
+  // Función para cuando se crea un paciente nuevo
+  const guardarCaso = async (nuevoPacienteBd) => {
+    // Al crear uno nuevo, es más seguro volver a pedir la lista completa 
+    // a Supabase para que pase por el "traductor" y tenga el formato correcto.
+    await cargarPacientes();
   };
 
-  // ── Agregar imagen al historial
-  const agregarImagen = (idCaso, nuevaImagen) => {
-    setCasos((prev) =>
-      prev.map((c) =>
-        c.id === idCaso
-          ? { ...c, imagenes: [nuevaImagen, ...c.imagenes], imagenPrincipal: nuevaImagen.url }
-          : c
-      )
-    );
-    setCasoSeleccionado((prev) => ({
-      ...prev,
-      imagenes: [nuevaImagen, ...prev.imagenes],
-      imagenPrincipal: nuevaImagen.url,
-    }));
+  const borrarCaso = async (id) => {
+    try {
+      // 1. Le decimos a Supabase que elimine la fila de este paciente
+      const { error } = await supabase
+        .from('Pacientes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // 2. Si Supabase lo borró con éxito, lo quitamos de la pantalla
+      setCasos((prev) => prev.filter((c) => c.id !== id));
+      setCasoSeleccionado(null);
+      
+      console.log("Paciente eliminado definitivamente de la base de datos.");
+
+    } catch (error) {
+      console.error("Error al borrar el paciente:", error.message);
+      alert("Hubo un error al intentar borrar el paciente.");
+    }
   };
 
-  // ── Borrar caso
-  const borrarCaso = (id) => {
-    setCasos((prev) => prev.filter((c) => c.id !== id));
-    setCasoSeleccionado(null);
+  // Función temporal
+  const guardarDiagnostico = (id, datos) => {
+    console.log("Guardando diagnóstico para", id, datos);
+  };
+
+  const agregarImagen = (id, imagen) => {
+    console.log("Imagen agregada", id, imagen);
   };
 
   return (
     <CasosContext.Provider
-      value={{ casos, casoSeleccionado, setCasoSeleccionado, guardarCaso, guardarDiagnostico, agregarImagen, borrarCaso }}
+      value={{
+        casos,
+        casoSeleccionado,
+        setCasoSeleccionado,
+        guardarCaso,
+        borrarCaso,
+        guardarDiagnostico,
+        agregarImagen,
+      }}
     >
       {children}
     </CasosContext.Provider>
   );
 };
-
-export const useCasos = () => useContext(CasosContext);

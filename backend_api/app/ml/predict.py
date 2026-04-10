@@ -12,7 +12,7 @@ model = HybridModel(
     dropout=0.4
 )
 
-MODEL_PATH = "model_weights/hibrido_prueba.pt.zip"
+MODEL_PATH = "model_weights/hybrid_final.pt.zip"
 
 def load_model_weights():
     try:

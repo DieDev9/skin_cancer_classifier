@@ -49,10 +49,20 @@ const Sidebar = () => {
 
   return (
     <aside className="col-span-3 bg-white rounded-xl shadow p-4 flex flex-col h-full">
-      {/* Encabezado */}
-      <div className="mb-3">
-        <h2 className="text-base font-bold text-gray-700">Historial de Casos</h2>
-        <p className="text-xs text-gray-400">{casosVisibles.length} casos recientes</p>
+      
+      {/* ── Encabezado Actualizado con Botón Nuevo ── */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-base font-bold text-gray-700">Historial de Casos</h2>
+          <p className="text-xs text-gray-400">{casosVisibles.length} casos recientes</p>
+        </div>
+        
+        <button
+          onClick={() => setCasoSeleccionado(null)}
+          className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-semibold px-3 py-1.5 rounded-lg border border-blue-200 transition-colors shadow-sm cursor-pointer"
+        >
+          ➕ Nuevo
+        </button>
       </div>
 
       {/* Lista con scroll */}
