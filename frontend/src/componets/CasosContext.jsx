@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { useAuth } from "./AuthContext"; // <--- 1. IMPORTANTE: Importamos el AuthContext
+import { useAuth } from "./AuthContext"; 
 
-// Inicializamos Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -12,23 +11,19 @@ const CasosContext = createContext();
 export const useCasos = () => useContext(CasosContext);
 
 export const CasosProvider = ({ children }) => {
-  const [casos, setCasos] = useState([]); // Iniciamos con un arreglo VACÍO
+  const [casos, setCasos] = useState([]); 
   const [casoSeleccionado, setCasoSeleccionado] = useState(null);
   
-  // 2. Traemos la información de quién está logueado
   const { usuario } = useAuth(); 
 
-  // --- FUNCIÓN: CARGAR Y TRADUCIR DATOS REALES ---
   const cargarPacientes = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) {
         setCasos([]); 
-        return;
+        return [];
       }
 
-      // 1. Traer los pacientes y sus diagnósticos anidados
       const { data, error } = await supabase
         .from("Pacientes")
         .select(`
@@ -40,59 +35,67 @@ export const CasosProvider = ({ children }) => {
 
       if (error) throw error;
       
-      // 2. Traductor
       const pacientesTraduccion = data.map((paciente) => {
-        const diag = paciente.Diagnostico && paciente.Diagnostico.length > 0 
-          ? paciente.Diagnostico[0] 
-          : null;
+        const diagnosticosSorted = paciente.Diagnostico?.sort((a, b) => 
+          new Date(b.created_at) - new Date(a.created_at)
+        ) || [];
+
+        const ultimoDiag = diagnosticosSorted[0] || null;
 
         return {
           id: paciente.id,
           nombre: paciente.nombre || "",
           apellido: paciente.apellido || "",
+          colorPiel: paciente.color_piel || "", 
           fechaNacimiento: paciente.fecha_nacimiento || "", 
-          estado: paciente.estado || "Activo",
-          notas: paciente.observaciones || paciente.notas || "", 
+          estado: paciente.estado || "Sin diagnóstico",
+          notas: paciente.notas || "", 
 
-          imagenPrincipal: diag ? diag.imagen_url : null,
-          clasificacion: diag ? diag.clasificacion : "Sin clasificar",
-          probabilidad: diag ? diag.probabilidad : "", 
-          descripcionLesion: diag ? diag.descripcion_medico : "",
-          fechaDiagnostico: diag ? diag.fecha_diagnostico : "",
-          diagnosticoConfirmado: diag ? diag.diagnostico_confirmado : false,
+          imagenes: diagnosticosSorted.map(d => ({
+            id: d.id,
+            url: d.imagen_url,
+            fecha: d.fecha_diagnostico
+          })),
+
+          imagenPrincipal: ultimoDiag ? ultimoDiag.imagen_url : null,
+          clasificacion: ultimoDiag ? ultimoDiag.clasificacion : "Sin clasificar",
+          probabilidad: ultimoDiag ? ultimoDiag.probabilidad : "", 
+          descripcionLesion: ultimoDiag ? ultimoDiag.descripcion_medico : "",
+          fechaDiagnostico: ultimoDiag ? ultimoDiag.fecha_diagnostico : "",
+          diagnosticoConfirmado: ultimoDiag ? ultimoDiag.diagnostico_confirmado : false,
         };
       });
 
-      // 3. Entregar los datos ya limpios a la interfaz
       setCasos(pacientesTraduccion);
+      return pacientesTraduccion; 
 
     } catch (error) {
       console.error("Error cargando historial:", error.message);
+      return [];
     }
   };
 
-  // --- 3. EL NUEVO USEEFFECT INTELIGENTE ---
   useEffect(() => {
     if (usuario) {
-      // Si el doctor inicia sesión, carga SUS pacientes
       cargarPacientes();
     } else {
-      // Si el doctor cierra sesión, borramos todo de la pantalla por seguridad
       setCasos([]);
       setCasoSeleccionado(null);
     }
-  }, [usuario]); // <--- React ahora vigila los cambios en 'usuario'
+  }, [usuario]); 
 
-  // Función para cuando se crea un paciente nuevo
-  const guardarCaso = async (nuevoPacienteBd) => {
-    // Al crear uno nuevo, es más seguro volver a pedir la lista completa 
-    // a Supabase para que pase por el "traductor" y tenga el formato correcto.
-    await cargarPacientes();
+  const guardarCaso = async (pacienteCrudo) => {
+    const listaActualizada = await cargarPacientes();
+    if (pacienteCrudo && pacienteCrudo.id) {
+      const pacienteListo = listaActualizada.find(p => p.id === pacienteCrudo.id);
+      if (pacienteListo) {
+        setCasoSeleccionado(pacienteListo);
+      }
+    }
   };
 
   const borrarCaso = async (id) => {
     try {
-      // 1. Le decimos a Supabase que elimine la fila de este paciente
       const { error } = await supabase
         .from('Pacientes')
         .delete()
@@ -100,21 +103,32 @@ export const CasosProvider = ({ children }) => {
 
       if (error) throw error;
 
-      // 2. Si Supabase lo borró con éxito, lo quitamos de la pantalla
       setCasos((prev) => prev.filter((c) => c.id !== id));
       setCasoSeleccionado(null);
-      
-      console.log("Paciente eliminado definitivamente de la base de datos.");
-
     } catch (error) {
-      console.error("Error al borrar el paciente:", error.message);
+      console.error("Error al borrar paciente:", error.message);
       alert("Hubo un error al intentar borrar el paciente.");
     }
   };
 
-  // Función temporal
-  const guardarDiagnostico = (id, datos) => {
-    console.log("Guardando diagnóstico para", id, datos);
+  // --- NUEVA FUNCIÓN: BORRAR IMAGEN DEL HISTORIAL ---
+  const borrarImagen = async (imagenId, pacienteId) => {
+    try {
+      // Borramos el registro específico de la tabla de diagnósticos
+      const { error } = await supabase
+        .from('Diagnostico')
+        .delete()
+        .eq('id', imagenId);
+
+      if (error) throw error;
+
+      // Refrescamos el paciente para que la UI se actualice
+      await guardarCaso({ id: pacienteId });
+      
+    } catch (error) {
+      console.error("Error al borrar la imagen:", error.message);
+      throw error; // Lanzamos el error para que el panel lo atrape y muestre la alerta
+    }
   };
 
   const agregarImagen = (id, imagen) => {
@@ -129,7 +143,7 @@ export const CasosProvider = ({ children }) => {
         setCasoSeleccionado,
         guardarCaso,
         borrarCaso,
-        guardarDiagnostico,
+        borrarImagen, // ¡No olvides exportarla aquí!
         agregarImagen,
       }}
     >

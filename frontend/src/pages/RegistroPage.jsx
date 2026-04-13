@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router";
+import { useNavigate, Link } from "react-router"; // O react-router-dom dependiendo de tu versión
 import { useAuth } from "../componets/AuthContext";
 
 const RegistroPage = () => {
@@ -17,7 +17,7 @@ const RegistroPage = () => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (form.password !== form.confirmar) {
       setErrorLocal("Las contraseñas no coinciden.");
@@ -28,11 +28,8 @@ const handleSubmit = async (e) => {
       return;
     }
     setCargando(true);
-    // Ya no necesitamos simular latencia, Supabase tiene su propia latencia real, 
-    // pero podemos dejar este delay si quieres el efecto visual
     await new Promise((r) => setTimeout(r, 600)); 
     
-    // --- AQUÍ ESTÁ LA MAGIA ---
     const ok = await registro(form.nombre, form.email, form.password); 
     
     setCargando(false);
@@ -44,37 +41,46 @@ const handleSubmit = async (e) => {
   return (
     <div className="min-h-screen bg-slate-950 flex">
 
-      {/* ── Panel izquierdo — branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-gradient-to-br from-slate-900 to-slate-950 border-r border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white text-lg">
-            🔬
+      {/* ── Panel izquierdo — branding (NUEVO DISEÑO CON IMAGEN) ── */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative bg-cover bg-center border-r border-slate-800"
+        style={{ backgroundImage: "url('/FACULTAD-DE-SALUD-20-scaled.jpeg')" }}
+      >
+        {/* Filtro oscuro sobre la foto para que el texto blanco se lea perfecto */}
+        <div className="absolute inset-0 bg-black/70"></div>
+
+        {/* Contenedor relativo para que el texto quede por encima del filtro oscuro */}
+        <div className="relative z-10 flex flex-col justify-between h-full">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white text-lg">
+              🔬
+            </div>
+            <span className="text-white font-bold text-lg tracking-tight">DermaScan</span>
           </div>
-          <span className="text-white font-bold text-lg tracking-tight">DermaScan</span>
-        </div>
 
-        <div>
-          <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-            Crea tu cuenta<br />
-            <span className="text-blue-400">y empieza a diagnosticar.</span>
-          </h1>
-          <p className="text-slate-400 text-base leading-relaxed">
-            Únete a la plataforma de diagnóstico dermatológico asistido por IA.
-            Gestiona tus pacientes y casos clínicos desde un solo lugar.
-          </p>
-        </div>
+          <div>
+            <h1 className="text-4xl font-bold text-white leading-tight mb-4">
+              Crea tu cuenta<br />
+              <span className="text-blue-400">y empieza a diagnosticar.</span>
+            </h1>
+            <p className="text-slate-300 text-base leading-relaxed">
+              Únete a la plataforma de diagnóstico dermatológico asistido por IA.
+              Gestiona tus pacientes y casos clínicos desde un solo lugar.
+            </p>
+          </div>
 
-        <ul className="flex flex-col gap-3 text-slate-400 text-sm">
-          {["Acceso a historial completo de pacientes", "Panel de diagnóstico con IA integrada", "Gestión de imágenes dermatológicas"].map((item) => (
-            <li key={item} className="flex items-center gap-2">
-              <span className="text-blue-500 text-base">✓</span>
-              {item}
-            </li>
-          ))}
-        </ul>
+          <ul className="flex flex-col gap-3 text-slate-300 text-sm">
+            {["Acceso a historial completo de pacientes", "Panel de diagnóstico con IA integrada", "Gestión de imágenes dermatológicas"].map((item) => (
+              <li key={item} className="flex items-center gap-2">
+                <span className="text-blue-500 text-base">✓</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      {/* ── Panel derecho — formulario */}
+      {/* ── Panel derecho — formulario (SE MANTIENE IGUAL DE GENIAL) ── */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
 

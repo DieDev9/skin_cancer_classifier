@@ -2,36 +2,37 @@ import React, { useState, useEffect, useRef } from "react";
 import { useCasos } from "./CasosContext";
 import { createClient } from "@supabase/supabase-js";
 
-// <-- NUEVO: Inicializar Supabase
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-
-// ── Barra de probabilidad
 const ProbabilidadBar = ({ valor, clasificacion }) => {
   const color =
-    clasificacion === "Maligno"       ? "bg-red-500"
-    : clasificacion === "Benigno"     ? "bg-green-500"
-    : "bg-yellow-400";
+    clasificacion === "Maligno"     ? "bg-red-500"
+    : clasificacion === "Benigno"   ? "bg-green-500"
+    : "bg-gray-300";
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex justify-between text-xs text-gray-500">
-        <span>Probabilidad</span>
-        <span className="font-bold text-gray-700">{valor ?? "—"}%</span>
+    <div className="flex flex-col gap-2 p-4 border border-gray-100 rounded-xl bg-gray-50 mt-2">
+      <div className="flex justify-between items-center text-sm">
+        <span className="font-bold text-gray-700">Probabilidad del modelo</span>
+        <span className={`font-bold text-lg ${clasificacion === "Maligno" ? "text-red-600" : clasificacion === "Benigno" ? "text-green-600" : "text-gray-500"}`}>
+          {valor ?? "0"}%
+        </span>
       </div>
-      <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-500 ${color}`}
+          className={`h-full rounded-full transition-all duration-700 ${color}`}
           style={{ width: `${valor ?? 0}%` }}
         />
       </div>
+      <p className="text-xs text-gray-500 mt-1">
+        Valor generado automáticamente por el modelo de IA al analizar la imagen.
+      </p>
     </div>
   );
 };
 
-// ── Badge clasificación
 const ClasificacionBadge = ({ clasificacion }) => {
   const estilos = {
     Maligno:       "bg-red-100 text-red-700 border-red-200",
@@ -41,37 +42,59 @@ const ClasificacionBadge = ({ clasificacion }) => {
   const iconos = { Maligno: "⚠️", Benigno: "✅", "Sin clasificar": "❓" };
 
   return (
-    <span className={`inline-flex items-center gap-1 text-sm font-semibold px-3 py-1 rounded-full border ${estilos[clasificacion] ?? estilos["Sin clasificar"]}`}>
-      {iconos[clasificacion]} {clasificacion}
-    </span>
+    <div className="flex flex-col gap-1.5 mt-2 mb-4">
+      <div className="flex items-center gap-3">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clasificación</span>
+        <span className={`inline-flex items-center gap-1.5 text-sm font-semibold px-3 py-1 rounded-full border ${estilos[clasificacion] ?? estilos["Sin clasificar"]}`}>
+          {iconos[clasificacion]} {clasificacion}
+        </span>
+      </div>
+      <p className="text-xs text-gray-400">Asignada automáticamente por el modelo de IA.</p>
+    </div>
   );
 };
 
-// ── Miniatura del historial de imágenes
-const ImagenThumb = ({ imagen, activa, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0
-      ${activa ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-blue-300"}`}
-  >
-    <img src={imagen.url} alt={imagen.fecha} className="w-full h-full object-cover" />
-  </button>
+// ── ACTUALIZADO: Miniatura del historial con botón de borrar
+const ImagenThumb = ({ imagen, activa, onClick, onBorrar }) => (
+  <div className="relative group flex-shrink-0 mt-2 mr-2">
+    <button
+      onClick={onClick}
+      className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all block
+        ${activa ? "border-blue-500 ring-2 ring-blue-200" : "border-gray-200 hover:border-blue-300"}`}
+    >
+      <img src={imagen.url} alt={imagen.fecha} className="w-full h-full object-cover" />
+    </button>
+    
+    {/* Botón flotante 'X' (solo se muestra si la imagen no es la que se está viendo y se pasa el mouse encima) */}
+    {!activa && (
+      <button
+        onClick={(e) => {
+          e.stopPropagation(); // Evita que la imagen se seleccione al darle a borrar
+          onBorrar(imagen);
+        }}
+        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-red-600 z-10"
+        title="Eliminar del historial"
+      >
+        ✕
+      </button>
+    )}
+  </div>
 );
 
 // ────────────────────────────────────────────
 const DiagnosisPanel = () => {
-  const { casoSeleccionado, guardarDiagnostico, agregarImagen } = useCasos();
+  const { casoSeleccionado, guardarCaso, borrarImagen } = useCasos(); // <-- Traemos borrarImagen
 
-  const [modo, setModo]           = useState("ver");   // "ver" | "editar"
+  const [modo, setModo]           = useState("ver");
   const [form, setForm]           = useState({});
   const [imagenActiva, setImagenActiva] = useState(null);
   const fileInputRef              = useRef(null);
   const [notificacion, setNotificacion] = useState(null);
-  
-  // --- NUEVO ESTADO PARA EL MODAL DE IMAGEN ---
   const [mostrarModal, setMostrarModal] = useState(false);
+  
+  // Nuevo estado para controlar el modal de confirmación de borrado de imagen
+  const [imagenABorrar, setImagenABorrar] = useState(null);
 
-  // Sincronizar cuando cambia el caso
   useEffect(() => {
     if (casoSeleccionado) {
       setForm({
@@ -91,16 +114,14 @@ const DiagnosisPanel = () => {
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
-const handleGuardar = async () => {
+  const handleGuardar = async () => {
     try {
-      // 1. Verificamos que tengamos al paciente correcto seleccionado
       if (!casoSeleccionado || !casoSeleccionado.id) {
         setNotificacion({ tipo: "error", texto: "No hay un paciente activo." });
         setTimeout(() => setNotificacion(null), 4000);
         return;
       }
 
-      // 2. Empaquetamos los datos
       const nuevoDiagnostico = {
         paciente_id: casoSeleccionado.id, 
         imagen_url: imagenActiva,
@@ -111,22 +132,27 @@ const handleGuardar = async () => {
         fecha_diagnostico: form.fechaDiagnostico || new Date().toISOString().slice(0, 10)
       };
 
-      // 3. Enviamos a Supabase
-      const { error } = await supabase
+      const { error: errorDiag } = await supabase
         .from("Diagnostico")
         .insert(nuevoDiagnostico);
 
-      if (error) throw error;
+      if (errorDiag) throw errorDiag;
 
-      // 4. ¡Éxito! Quitamos el alert feo y usamos tu notificación flotante
+      const { error: errorPac } = await supabase
+        .from("Pacientes")
+        .update({ estado: "Diagnósticado" })
+        .eq("id", casoSeleccionado.id);
+
+      if (errorPac) console.warn("No se pudo actualizar el estado del paciente.");
+
+      await guardarCaso(casoSeleccionado);
+
       setModo("ver");
-      setNotificacion({ tipo: "exito", texto: "¡Historial guardado correctamente!" });
-      
-      // Ocultamos la notificación automáticamente después de 4 segundos
+      setNotificacion({ tipo: "exito", texto: "¡Diagnóstico guardado exitosamente!" });
       setTimeout(() => setNotificacion(null), 4000);
 
     } catch (error) {
-      console.error("Error al guardar diagnóstico en BD:", error);
+      console.error("Error al guardar:", error);
       setNotificacion({ tipo: "error", texto: "Hubo un problema al guardar." });
       setTimeout(() => setNotificacion(null), 4000);
     }
@@ -143,17 +169,17 @@ const handleGuardar = async () => {
     setModo("ver");
   };
 
-// Subir imagen a Supabase Storage y consultar a la IA
   const handleSubirImagen = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     try {
-      // --- 1. SUBIR A SUPABASE ---
+      setNotificacion({ tipo: "info", texto: "Subiendo y analizando imagen..." });
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${casoSeleccionado.id}_${Date.now()}.${fileExt}`;
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('imagenes_lunares')
         .upload(fileName, file);
 
@@ -163,53 +189,52 @@ const handleGuardar = async () => {
         .from('imagenes_lunares')
         .getPublicUrl(fileName);
 
-      const nueva = { 
-        id: Date.now(), 
-        url: publicUrl, 
-        fecha: new Date().toISOString().slice(0, 10), 
-        esLocal: false 
-      };
-      
-      agregarImagen(casoSeleccionado.id, nueva);
       setImagenActiva(publicUrl);
-      console.log("¡Éxito! URL en Supabase:", publicUrl);
 
-      // --- 2. CONSULTAR A TU INTELIGENCIA ARTIFICIAL ---
-      // Usamos la URL de tu .env.local (o directamente localhost si falla)
       const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
       
       const respuestaIA = await fetch(`${apiUrl}/predict`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imagen_url: publicUrl })
       });
 
-      if (!respuestaIA.ok) throw new Error("El backend no pudo procesar la imagen");
+      if (!respuestaIA.ok) throw new Error("Fallo en la IA");
 
       const datosIA = await respuestaIA.json();
-      console.log("¡Magia de la IA!", datosIA);
 
-      // --- 3. ACTUALIZAR LA PANTALLA CON LOS RESULTADOS ---
       setForm((prev) => ({
         ...prev,
         clasificacion: datosIA.diagnostico,
-        // Convertimos el 0.015 a 1.5% para que la barrita lo entienda bien
         probabilidad: (datosIA.probabilidad_maligno * 100).toFixed(2) 
       }));
 
+      setNotificacion(null);
       setModo("editar");
 
     } catch (error) {
-      console.error("Error en el proceso:", error.message);
-      alert("Hubo un error al procesar la imagen. Revisa la consola.");
+      console.error("Error:", error.message);
+      setNotificacion({ tipo: "error", texto: "Error al procesar la imagen." });
+      setTimeout(() => setNotificacion(null), 4000);
+    }
+  };
+
+  // --- NUEVO: FUNCIÓN PARA CONFIRMAR EL BORRADO DE IMAGEN ---
+  const confirmarBorradoImagen = async () => {
+    if (!imagenABorrar) return;
+    try {
+      await borrarImagen(imagenABorrar.id, casoSeleccionado.id);
+      setNotificacion({ tipo: "exito", texto: "Imagen eliminada del historial." });
+      setImagenABorrar(null); // Cierra el modal
+      setTimeout(() => setNotificacion(null), 3000);
+    } catch (error) {
+      setNotificacion({ tipo: "error", texto: "No se pudo eliminar la imagen." });
+      setTimeout(() => setNotificacion(null), 4000);
     }
   };
 
   const esLectura = modo === "ver";
 
-  // ── Sin caso seleccionado
   if (!casoSeleccionado) {
     return (
       <aside className="col-span-6 bg-white rounded-xl shadow p-4 flex flex-col items-center justify-center gap-3 h-full">
@@ -224,13 +249,13 @@ const handleGuardar = async () => {
   const imagenes = casoSeleccionado.imagenes ?? [];
 
   return (
-    <aside className="col-span-6 bg-white rounded-xl shadow p-4 flex flex-col h-full gap-4 overflow-y-auto">
+    <aside className="col-span-6 bg-white rounded-xl shadow p-4 flex flex-col h-full gap-4 overflow-y-auto relative">
 
       {/* ── Encabezado */}
       <div className="flex items-center justify-between border-b pb-3">
         <div>
           <h2 className="text-base font-bold text-gray-700">Panel de Diagnóstico</h2>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 mt-0.5">
             {casoSeleccionado.nombre} {casoSeleccionado.apellido}
           </p>
         </div>
@@ -259,13 +284,12 @@ const handleGuardar = async () => {
         )}
       </div>
 
-      {/* ── Imagen principal (AHORA CLICKABLE) */}
+      {/* ── Imagen principal */}
       <div className="flex flex-col gap-2">
         <div className="w-full h-44 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center relative group">
           {imagenActiva ? (
             <>
               <img src={imagenActiva} alt="Lesión" className="w-full h-full object-cover" />
-              {/* Botón flotante para ampliar */}
               <button
                 onClick={() => setMostrarModal(true)}
                 className="absolute inset-0 bg-black/50 text-white flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-zoom-in"
@@ -284,13 +308,14 @@ const handleGuardar = async () => {
 
         {/* Historial de miniaturas */}
         {imagenes.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-1 pl-1 pt-1">
             {imagenes.map((img) => (
               <ImagenThumb
                 key={img.id}
                 imagen={img}
                 activa={imagenActiva === img.url}
                 onClick={() => setImagenActiva(img.url)}
+                onBorrar={(img) => setImagenABorrar(img)} // Abre el modal
               />
             ))}
           </div>
@@ -298,20 +323,11 @@ const handleGuardar = async () => {
 
         {/* Botones subir imagen */}
         <div className="flex gap-2">
-          {/* Subir desde PC */}
           <button
             onClick={() => fileInputRef.current?.click()}
             className="flex-1 text-xs font-medium py-2 rounded-lg border border-dashed border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
           >
             📁 Subir desde PC
-          </button>
-          {/* Conectar con backend */}
-          <button
-            disabled
-            className="flex-1 text-xs font-medium py-2 rounded-lg border border-dashed border-gray-200 text-gray-300 cursor-not-allowed"
-            title="Conectar con backend próximamente"
-          >
-            ☁️ Desde servidor
           </button>
           <input
             ref={fileInputRef}
@@ -323,86 +339,53 @@ const handleGuardar = async () => {
         </div>
       </div>
 
-      {/* ── Clasificación y probabilidad */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Clasificación</span>
-          {esLectura ? (
-            <ClasificacionBadge clasificacion={form.clasificacion} />
-          ) : (
-            <select
-              name="clasificacion"
-              value={form.clasificacion}
-              onChange={handleChange}
-              className="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:border-blue-400"
-            >
-              <option>Sin clasificar</option>
-              <option>Benigno</option>
-              <option>Maligno</option>
-            </select>
-          )}
+      {/* ── SECCIÓN DE RESULTADOS IA */}
+      <div className="border-t border-gray-100 pt-4">
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Análisis de Inteligencia Artificial</h3>
+        <ClasificacionBadge clasificacion={form.clasificacion} />
+        <ProbabilidadBar valor={form.probabilidad} clasificacion={form.clasificacion} />
+      </div>
+
+      {/* ── Descripción y Fecha */}
+      <div className="grid grid-cols-1 gap-3 mt-2">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Descripción de la lesión
+          </label>
+          <textarea
+            name="descripcionLesion"
+            value={form.descripcionLesion}
+            onChange={handleChange}
+            disabled={esLectura}
+            rows={3}
+            className={`rounded-lg border px-3 py-2 text-sm text-gray-800 outline-none resize-none transition-colors
+              ${esLectura
+                ? "bg-gray-50 border-gray-200 text-gray-500"
+                : "bg-white border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              }`}
+          />
         </div>
 
-        {esLectura ? (
-          <ProbabilidadBar valor={form.probabilidad} clasificacion={form.clasificacion} />
-        ) : (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Probabilidad (0–100)
-            </label>
-            <input
-              type="number"
-              name="probabilidad"
-              min="0"
-              max="100"
-              value={form.probabilidad}
-              onChange={handleChange}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-400"
-            />
-          </div>
-        )}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Fecha de diagnóstico
+          </label>
+          <input
+            type="date"
+            name="fechaDiagnostico"
+            value={form.fechaDiagnostico}
+            onChange={handleChange}
+            disabled={esLectura}
+            className={`rounded-lg border px-3 py-2 text-sm outline-none transition-colors
+              ${esLectura
+                ? "bg-gray-50 border-gray-200 text-gray-500"
+                : "bg-white border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              }`}
+          />
+        </div>
       </div>
 
-      {/* ── Descripción de la lesión */}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Descripción de la lesión
-        </label>
-        <textarea
-          name="descripcionLesion"
-          value={form.descripcionLesion}
-          onChange={handleChange}
-          disabled={esLectura}
-          rows={3}
-          className={`rounded-lg border px-3 py-2 text-sm text-gray-800 outline-none resize-none transition-colors
-            ${esLectura
-              ? "bg-gray-50 border-gray-200 text-gray-500"
-              : "bg-white border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            }`}
-        />
-      </div>
-
-      {/* ── Fecha de diagnóstico */}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Fecha de diagnóstico
-        </label>
-        <input
-          type="date"
-          name="fechaDiagnostico"
-          value={form.fechaDiagnostico}
-          onChange={handleChange}
-          disabled={esLectura}
-          className={`rounded-lg border px-3 py-2 text-sm outline-none transition-colors
-            ${esLectura
-              ? "bg-gray-50 border-gray-200 text-gray-500"
-              : "bg-white border-gray-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-            }`}
-        />
-      </div>
-
-      {/* ── Confirmar diagnóstico IA */}
-      <label className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer
+      <label className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer mt-1
         ${form.diagnosticoConfirmado
           ? "bg-green-50 border-green-200"
           : "bg-gray-50 border-gray-200 hover:bg-blue-50 hover:border-blue-200"
@@ -414,15 +397,15 @@ const handleGuardar = async () => {
           checked={form.diagnosticoConfirmado}
           onChange={handleChange}
           disabled={esLectura}
-          className="w-4 h-4 accent-green-600"
+          className="w-4 h-4 accent-green-600 rounded"
         />
         <div>
           <p className="text-sm font-semibold text-gray-700">Diagnóstico confirmado por el doctor</p>
-          <p className="text-xs text-gray-400">Marca esta casilla para validar la sugerencia de la IA</p>
+          <p className="text-xs text-gray-400">Marca esta casilla para validar la sugerencia de la IA.</p>
         </div>
       </label>
 
-      {/* ── ── ── ── MODAL PARA IMAGEN AMPLIADA ── ── ── ── */}
+      {/* ── MODAL DE ZOOM DE IMAGEN ── */}
       {mostrarModal && imagenActiva && (
         <div 
           className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6 backdrop-blur-sm"
@@ -432,18 +415,15 @@ const handleGuardar = async () => {
             className="bg-white rounded-2xl shadow-2xl overflow-hidden relative max-w-4xl max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Cabecera del modal */}
             <div className="flex justify-between items-center p-4 border-b">
               <h3 className="text-lg font-bold text-gray-800">Vista Dermatoscópica</h3>
               <button 
                 onClick={() => setMostrarModal(false)}
-                className="text-gray-500 hover:bg-gray-100 rounded-full p-1.5 transition-colors"
+                className="text-gray-500 hover:bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
               >
                 ✕
               </button>
             </div>
-            
-            {/* Imagen centrada y ajustada */}
             <div className="flex-1 bg-gray-50 p-4 flex items-center justify-center overflow-auto">
               <img 
                 src={imagenActiva} 
@@ -455,17 +435,46 @@ const handleGuardar = async () => {
         </div>
       )}
 
-      {/* ── NOTIFICACIÓN FLOTANTE (TOAST) ── */}
+      {/* ── MODAL DE CONFIRMACIÓN DE BORRADO ── */}
+      {imagenABorrar && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 text-center transform transition-all">
+            <div className="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4 text-2xl">
+              ⚠️
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">¿Eliminar imagen?</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Esta acción eliminará la imagen y su diagnóstico asociado del historial clínico de forma permanente.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => setImagenABorrar(null)}
+                className="px-5 py-2 text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarBorradoImagen}
+                className="px-5 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── NOTIFICACIÓN (TOAST) ── */}
       {notificacion && (
         <div 
-          className={`fixed bottom-6 right-6 px-6 py-3 rounded-lg shadow-xl text-sm font-semibold text-white flex items-center gap-3 transition-all duration-500 z-50 animate-bounce
-            ${notificacion.tipo === 'exito' ? 'bg-green-600' : 'bg-red-600'}`}
+          className={`fixed bottom-6 right-6 px-6 py-3 rounded-lg shadow-xl text-sm font-semibold text-white flex items-center gap-3 transition-all duration-500 z-[70] animate-bounce
+            ${notificacion.tipo === 'exito' ? 'bg-green-600' 
+            : notificacion.tipo === 'info' ? 'bg-blue-600'
+            : 'bg-red-600'}`}
         >
-          {notificacion.tipo === 'exito' ? (
-            <span className="text-xl">✅</span>
-          ) : (
-            <span className="text-xl">⚠️</span>
-          )}
+          {notificacion.tipo === 'exito' ? <span className="text-xl">✅</span>
+          : notificacion.tipo === 'info' ? <span className="text-xl inline-block animate-spin">⏳</span>
+          : <span className="text-xl">⚠️</span>}
           {notificacion.texto}
         </div>
       )}

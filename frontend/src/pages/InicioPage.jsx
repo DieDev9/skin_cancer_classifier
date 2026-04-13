@@ -31,43 +31,52 @@ const InicioPage = () => {
   return (
     <div className="min-h-screen bg-slate-950 flex">
 
-      {/* ── Panel izquierdo — branding */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 bg-gradient-to-br from-slate-900 to-slate-950 border-r border-slate-800">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white text-lg">
-            🔬
-          </div>
-          <span className="text-white font-bold text-lg tracking-tight">DermaScan</span>
-        </div>
+      {/* ── Panel izquierdo — branding (NUEVO DISEÑO CON IMAGEN) ── */}
+      <div 
+        className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 relative bg-cover bg-center border-r border-slate-800"
+        style={{ backgroundImage: "url('/FACULTAD-DE-SALUD-20-scaled.jpeg')" }}
+      >
+        {/* Filtro oscuro sobre la foto */}
+        <div className="absolute inset-0 bg-black/70"></div>
 
-        <div>
-          <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-            Diagnóstico inteligente<br />
-            <span className="text-blue-400">al alcance del doctor.</span>
-          </h1>
-          <p className="text-slate-400 text-base leading-relaxed">
-            Gestiona casos clínicos, analiza lesiones dérmicas y obtén
-            sugerencias diagnósticas con apoyo de inteligencia artificial.
-          </p>
-        </div>
+        {/* Contenedor relativo para el texto */}
+        <div className="relative z-10 flex flex-col justify-between h-full">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white text-lg">
+              🔬
+            </div>
+            <span className="text-white font-bold text-lg tracking-tight">DermaScan</span>
+          </div>
 
-        <div className="flex gap-8 text-slate-500 text-sm">
           <div>
-            <p className="text-white font-bold text-2xl">98%</p>
-            <p>Precisión del modelo</p>
+            <h1 className="text-4xl font-bold text-white leading-tight mb-4">
+              Diagnóstico inteligente<br />
+              <span className="text-blue-400">al alcance del doctor.</span>
+            </h1>
+            <p className="text-slate-300 text-base leading-relaxed">
+              Gestiona casos clínicos, analiza lesiones dérmicas y obtén
+              sugerencias diagnósticas con apoyo de inteligencia artificial.
+            </p>
           </div>
-          <div>
-            <p className="text-white font-bold text-2xl">+500</p>
-            <p>Casos analizados</p>
-          </div>
-          <div>
-            <p className="text-white font-bold text-2xl">24/7</p>
-            <p>Disponibilidad</p>
+
+          <div className="flex gap-8 text-slate-300 text-sm">
+            <div>
+              <p className="text-white font-bold text-2xl">98%</p>
+              <p>Precisión del modelo</p>
+            </div>
+            <div>
+              <p className="text-white font-bold text-2xl">+500</p>
+              <p>Casos analizados</p>
+            </div>
+            <div>
+              <p className="text-white font-bold text-2xl">24/7</p>
+              <p>Disponibilidad</p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── Panel derecho — formulario */}
+      {/* ── Panel derecho — formulario (SE MANTIENE IGUAL) ── */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
 
@@ -139,11 +148,6 @@ const InicioPage = () => {
               {cargando ? "Verificando..." : "Iniciar sesión"}
             </button>
           </form>
-
-          {/*
-          <div className="mt-4 bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-xs text-slate-400">
-            <span className="text-slate-300 font-semibold">Demo:</span> doctor@demo.com / 123456
-          </div>*/}
 
           <p className="text-slate-500 text-sm text-center mt-6">
             ¿No tienes cuenta?{" "}
