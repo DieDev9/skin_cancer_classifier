@@ -3,11 +3,14 @@ venv/
 env/
 __pycache__/
 .env.local
-dist
 
 # Dependencias de Node (Frontend)
 node_modules/
-dist/
+
+# PyInstaller - solo ignorar exe y temporales, no el frontend/dist
+build/
+dist/SkinCancerClassifier.exe
+*.log
 
 # Archivos de entorno
 .env

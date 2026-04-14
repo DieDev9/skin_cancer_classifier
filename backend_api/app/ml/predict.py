@@ -1,5 +1,6 @@
 import torch
 import os
+import sys
 from app.ml.architecture import HybridModel
 from app.ml.preprocess import transform_image
 
@@ -13,7 +14,13 @@ model = HybridModel(
     dropout=0.4
 )
 
-MODEL_PATH = "model_weights/hybrid_final.pt.zip"
+def get_base_path():
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS
+    base = os.environ.get("_APP_BASE_PATH", "")
+    return os.path.join(base, "backend_api")
+
+MODEL_PATH = os.path.join(get_base_path(), "model_weights", "hybrid_final.pt")
 
 def load_model_weights():
     # Validación 1: Si el archivo no existe, DESTRUYE LA EJECUCIÓN inmediatamente.
