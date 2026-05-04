@@ -8,9 +8,9 @@ app = FastAPI(title="API Diagnóstico Cáncer de Piel (Híbrido)")
 
 # --- MODO PRODUCCIÓN: RESTRINGIDO A VERCEL ---
 origenes_permitidos = [
-    "https://tu-proyecto-frontend.vercel.app", # Reemplaza esto con tu URL real de Vercel
-    "http://localhost:5173",                   # Mantenlo para que puedas seguir probando en tu PC
-    "http://localhost:3000"                    # Por si usas Next.js en local
+    "https://dermascanuis.vercel.app", 
+    "http://localhost:5173",                   
+    "http://localhost:3000"                    
 ]
 
 app.add_middleware(
