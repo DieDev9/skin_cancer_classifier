@@ -6,16 +6,17 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// 1. CORRECCIÓN: Cambiamos 'notas' por 'observaciones' para mantener consistencia
 const CAMPOS_VACIOS = {
   nombre: "",
   apellido: "",
   colorPiel: "",
   fechaNacimiento: "",
-  notas: "",
+  observaciones: "", 
 };
 
-// Componentes de la interfaz
-const InputField = ({ label, name, type = "text", value, onChange, disabled }) => (
+// 2. CORRECCIÓN: Agregamos la propiedad 'max' al InputField
+const InputField = ({ label, name, type = "text", value, onChange, disabled, max }) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
       {label}
@@ -26,6 +27,7 @@ const InputField = ({ label, name, type = "text", value, onChange, disabled }) =
       value={value}
       onChange={onChange}
       disabled={disabled}
+      max={max} // <-- Propiedad añadida para bloquear fechas
       className={`rounded-lg border px-4 py-2.5 text-sm outline-none transition-colors
         ${disabled
           ? "bg-gray-50 border-gray-200 text-gray-500 cursor-default"
@@ -55,7 +57,6 @@ const TextAreaField = ({ label, name, value, onChange, disabled }) => (
   </div>
 );
 
-// Función matemática para calcular la edad
 const calcularEdad = (fecha) => {
   if (!fecha) return "";
   const hoy = new Date();
@@ -76,14 +77,17 @@ const UploadForm = () => {
   const [formData, setFormData] = useState(CAMPOS_VACIOS);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-useEffect(() => {
+  // 3. CORRECCIÓN: Calculamos la fecha actual en formato YYYY-MM-DD
+  const fechaHoy = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
     if (casoSeleccionado) {
       setFormData({
         nombre: casoSeleccionado.nombre || "",
         apellido: casoSeleccionado.apellido || "",
         colorPiel: casoSeleccionado.colorPiel || casoSeleccionado.color_piel || "",
         fechaNacimiento: casoSeleccionado.fechaNacimiento || casoSeleccionado.fecha_nacimiento || "",
-        notas: casoSeleccionado.notas || ""
+        observaciones: casoSeleccionado.observaciones || "" // <-- Consistencia en la lectura
       });
       setModo("ver");
     } else {
@@ -109,12 +113,17 @@ useEffect(() => {
         return;
       }
 
+      // 4. CORRECCIÓN: Lógica para inyectar "Sin observaciones" si está vacío
+      const textoObservaciones = formData.observaciones && formData.observaciones.trim() !== "" 
+        ? formData.observaciones 
+        : "Sin observaciones";
+
       const datosPaciente = {
         nombre: formData.nombre,
         apellido: formData.apellido,
         color_piel: formData.colorPiel,
         fecha_nacimiento: formData.fechaNacimiento || null,
-        observaciones: formData.observaciones || "",
+        observaciones: textoObservaciones, // <-- Usamos la variable evaluada
         user_id: user.id  
       };
 
@@ -128,7 +137,6 @@ useEffect(() => {
         guardarCaso({ ...casoSeleccionado, ...datosPaciente }); 
 
       } else {
-        // AUTOMATIZACIÓN: Si es nuevo, forzamos que sea "Sin diagnóstico"
         const datosNuevo = { ...datosPaciente, estado: "Sin diagnóstico" };
         const { data, error } = await supabase
           .from("Pacientes")
@@ -154,7 +162,7 @@ useEffect(() => {
         apellido: casoSeleccionado.apellido || "",
         colorPiel: casoSeleccionado.color_piel || "",
         fechaNacimiento: casoSeleccionado.fecha_nacimiento || "",
-        observaciones: casoSeleccionado.observaciones || ""
+        observaciones: casoSeleccionado.observaciones || "" // <-- Consistencia al cancelar
       });
       setModo("ver");
     } else {
@@ -269,9 +277,9 @@ useEffect(() => {
           value={formData.fechaNacimiento}
           onChange={handleChange}
           disabled={esLectura}
+          max={fechaHoy} // <-- 5. CORRECCIÓN: Le pasamos la fecha tope al input
         />
         
-        {/* Campo de edad auto-calculado */}
         <InputField
           label="Edad"
           name="edad"
@@ -282,7 +290,7 @@ useEffect(() => {
 
         <TextAreaField
           label="Notas / Observaciones"
-          name="notas"
+          name="observaciones" // <-- 6. CORRECCIÓN: Alineado con el estado
           value={formData.observaciones}
           onChange={handleChange}
           disabled={esLectura}
