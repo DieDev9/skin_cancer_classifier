@@ -191,7 +191,7 @@ const DiagnosisPanel = () => {
 
       setImagenActiva(publicUrl);
 
-      const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+      const apiUrl = "https://skincancerclassifier-production.up.railway.app";
       console.log("La URL de la API que React está usando es:", apiUrl);
       
       const respuestaIA = await fetch(`${apiUrl}/predict`, {
