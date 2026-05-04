@@ -102,7 +102,7 @@ const UploadForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleGuardar = async () => {
+ const handleGuardar = async () => {
     if (!formData.nombre.trim() || !formData.apellido.trim()) return;
 
     try {
@@ -113,17 +113,21 @@ const UploadForm = () => {
         return;
       }
 
-      // 4. CORRECCIÓN: Lógica para inyectar "Sin observaciones" si está vacío
-      const textoObservaciones = formData.observaciones && formData.observaciones.trim() !== "" 
-        ? formData.observaciones 
-        : "Sin observaciones";
+    
+      let textoFinal = "Sin observaciones";
+      
+      
+      if (typeof formData.observaciones === 'string' && formData.observaciones.trim() !== "") {
+        textoFinal = formData.observaciones;
+      }
+      // -------------------------------------------
 
       const datosPaciente = {
         nombre: formData.nombre,
         apellido: formData.apellido,
         color_piel: formData.colorPiel,
         fecha_nacimiento: formData.fechaNacimiento || null,
-        observaciones: textoObservaciones, // <-- Usamos la variable evaluada
+        observaciones: textoFinal, 
         user_id: user.id  
       };
 
@@ -290,7 +294,7 @@ const UploadForm = () => {
 
         <TextAreaField
           label="Notas / Observaciones"
-          name="observaciones" // <-- 6. CORRECCIÓN: Alineado con el estado
+          name="observaciones" //
           value={formData.observaciones}
           onChange={handleChange}
           disabled={esLectura}
