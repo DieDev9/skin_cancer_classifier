@@ -192,6 +192,7 @@ const DiagnosisPanel = () => {
       setImagenActiva(publicUrl);
 
       const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+      console.log("La URL de la API que React está usando es:", apiUrl);
       
       const respuestaIA = await fetch(`${apiUrl}/predict`, {
         method: "POST",
