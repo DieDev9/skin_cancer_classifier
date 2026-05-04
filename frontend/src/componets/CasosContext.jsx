@@ -49,7 +49,7 @@ export const CasosProvider = ({ children }) => {
           colorPiel: paciente.color_piel || "", 
           fechaNacimiento: paciente.fecha_nacimiento || "", 
           estado: paciente.estado || "Sin diagnóstico",
-          notas: paciente.notas || "", 
+          observaciones: paciente.observaciones || "", 
 
           imagenes: diagnosticosSorted.map(d => ({
             id: d.id,
