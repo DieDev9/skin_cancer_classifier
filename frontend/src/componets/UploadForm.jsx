@@ -6,7 +6,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// 1. CORRECCIÓN: Cambiamos 'notas' por 'observaciones' para mantener consistencia
+
 const CAMPOS_VACIOS = {
   nombre: "",
   apellido: "",
@@ -149,6 +149,7 @@ const UploadForm = () => {
 
         if (error) throw error;
         guardarCaso(data[0]); 
+        setCasoSeleccionado(data[0]);
       }
 
       setModo("ver");
