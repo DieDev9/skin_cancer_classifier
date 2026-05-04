@@ -6,7 +6,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-
+// 1. ESTADO INICIAL CORRECTO
 const CAMPOS_VACIOS = {
   nombre: "",
   apellido: "",
@@ -15,7 +15,7 @@ const CAMPOS_VACIOS = {
   observaciones: "", 
 };
 
-// 2. CORRECCIÓN: Agregamos la propiedad 'max' al InputField
+// Componentes de la interfaz
 const InputField = ({ label, name, type = "text", value, onChange, disabled, max }) => (
   <div className="flex flex-col gap-1.5">
     <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -27,7 +27,7 @@ const InputField = ({ label, name, type = "text", value, onChange, disabled, max
       value={value}
       onChange={onChange}
       disabled={disabled}
-      max={max} // <-- Propiedad añadida para bloquear fechas
+      max={max}
       className={`rounded-lg border px-4 py-2.5 text-sm outline-none transition-colors
         ${disabled
           ? "bg-gray-50 border-gray-200 text-gray-500 cursor-default"
@@ -44,7 +44,7 @@ const TextAreaField = ({ label, name, value, onChange, disabled }) => (
     </label>
     <textarea
       name={name}
-      value={value}
+      value={value || ""} // Protegemos contra nulos
       onChange={onChange}
       disabled={disabled}
       rows={4}
@@ -77,9 +77,9 @@ const UploadForm = () => {
   const [formData, setFormData] = useState(CAMPOS_VACIOS);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // 3. CORRECCIÓN: Calculamos la fecha actual en formato YYYY-MM-DD
   const fechaHoy = new Date().toISOString().split('T')[0];
 
+  // 2. SINCRONIZACIÓN PERFECTA AL CAMBIAR PACIENTE
   useEffect(() => {
     if (casoSeleccionado) {
       setFormData({
@@ -87,7 +87,7 @@ const UploadForm = () => {
         apellido: casoSeleccionado.apellido || "",
         colorPiel: casoSeleccionado.colorPiel || casoSeleccionado.color_piel || "",
         fechaNacimiento: casoSeleccionado.fechaNacimiento || casoSeleccionado.fecha_nacimiento || "",
-        observaciones: casoSeleccionado.observaciones || "" // <-- Consistencia en la lectura
+        observaciones: casoSeleccionado.observaciones || ""
       });
       setModo("ver");
     } else {
@@ -102,7 +102,7 @@ const UploadForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
- const handleGuardar = async () => {
+  const handleGuardar = async () => {
     if (!formData.nombre.trim() || !formData.apellido.trim()) return;
 
     try {
@@ -113,21 +113,18 @@ const UploadForm = () => {
         return;
       }
 
-    
+      // 3. LÓGICA DE TEXTO VACÍO
       let textoFinal = "Sin observaciones";
-      
-      
       if (typeof formData.observaciones === 'string' && formData.observaciones.trim() !== "") {
         textoFinal = formData.observaciones;
       }
-      // -------------------------------------------
 
       const datosPaciente = {
         nombre: formData.nombre,
         apellido: formData.apellido,
         color_piel: formData.colorPiel,
         fecha_nacimiento: formData.fechaNacimiento || null,
-        observaciones: textoFinal, 
+        observaciones: textoFinal,
         user_id: user.id  
       };
 
@@ -138,7 +135,11 @@ const UploadForm = () => {
           .eq("id", casoSeleccionado.id); 
 
         if (error) throw error;
-        guardarCaso({ ...casoSeleccionado, ...datosPaciente }); 
+        
+        // 4. FORZAMOS ACTUALIZACIÓN VISUAL EN EDICIÓN
+        const casoActualizado = { ...casoSeleccionado, ...datosPaciente };
+        guardarCaso(casoActualizado); 
+        setCasoSeleccionado(casoActualizado); 
 
       } else {
         const datosNuevo = { ...datosPaciente, estado: "Sin diagnóstico" };
@@ -148,8 +149,10 @@ const UploadForm = () => {
           .select();
 
         if (error) throw error;
+        
+        // 5. FORZAMOS ACTUALIZACIÓN VISUAL AL CREAR
         guardarCaso(data[0]); 
-        setCasoSeleccionado(data[0]);
+        setCasoSeleccionado(data[0]); 
       }
 
       setModo("ver");
@@ -165,9 +168,9 @@ const UploadForm = () => {
       setFormData({
         nombre: casoSeleccionado.nombre || "",
         apellido: casoSeleccionado.apellido || "",
-        colorPiel: casoSeleccionado.color_piel || "",
-        fechaNacimiento: casoSeleccionado.fecha_nacimiento || "",
-        observaciones: casoSeleccionado.observaciones || "" // <-- Consistencia al cancelar
+        colorPiel: casoSeleccionado.colorPiel || casoSeleccionado.color_piel || "",
+        fechaNacimiento: casoSeleccionado.fechaNacimiento || casoSeleccionado.fecha_nacimiento || "",
+        observaciones: casoSeleccionado.observaciones || ""
       });
       setModo("ver");
     } else {
@@ -282,7 +285,7 @@ const UploadForm = () => {
           value={formData.fechaNacimiento}
           onChange={handleChange}
           disabled={esLectura}
-          max={fechaHoy} // <-- 5. CORRECCIÓN: Le pasamos la fecha tope al input
+          max={fechaHoy}
         />
         
         <InputField
@@ -295,7 +298,7 @@ const UploadForm = () => {
 
         <TextAreaField
           label="Notas / Observaciones"
-          name="observaciones" //
+          name="observaciones" 
           value={formData.observaciones}
           onChange={handleChange}
           disabled={esLectura}
