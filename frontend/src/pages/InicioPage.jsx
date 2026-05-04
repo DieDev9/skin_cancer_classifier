@@ -45,7 +45,7 @@ const InicioPage = () => {
             <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white text-lg">
               🔬
             </div>
-            <span className="text-white font-bold text-lg tracking-tight">DermaScan</span>
+            <span className="text-white font-bold text-lg tracking-tight">SISTEMA DE APOYO AL DIAGNÓSTICO DE CÁNCER DE PIEL</span>
           </div>
 
           <div>
@@ -61,16 +61,16 @@ const InicioPage = () => {
 
           <div className="flex gap-8 text-slate-300 text-sm">
             <div>
-              <p className="text-white font-bold text-2xl">98%</p>
-              <p>Precisión del modelo</p>
+              <p className="text-white font-bold text-2xl"></p>
+              <p></p>
             </div>
             <div>
-              <p className="text-white font-bold text-2xl">+500</p>
-              <p>Casos analizados</p>
+              <p className="text-white font-bold text-2xl"></p>
+              <p></p>
             </div>
             <div>
-              <p className="text-white font-bold text-2xl">24/7</p>
-              <p>Disponibilidad</p>
+              <p className="text-white font-bold text-2xl"></p>
+              <p></p>
             </div>
           </div>
         </div>

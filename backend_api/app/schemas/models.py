@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
 
-# 1. ESTE ES EL QUE FALTA (El que pide el error)
+
 class PeticionImagen(BaseModel):
     imagen_url: str
 

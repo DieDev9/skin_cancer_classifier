@@ -1,0 +1,16 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Cache de Python
+__pycache__/
+*.pyc
+
+# Variables de entorno
+.env
+
+# Pesos del modelo (demasiado pesados para GitHub)
+model_weights/
+
+# Scripts temporales
+check_ram.py
