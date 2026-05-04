@@ -1,0 +1,22 @@
+# Entorno virtual
+.venv/
+venv/
+
+# Cache de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Variables de entorno (se configuran en Render)
+.env
+
+# Git
+.git/
+.gitignore
+
+# Scripts de desarrollo
+check_ram.py
+
+# Carpeta extraída del modelo (solo se necesita el .zip)
+model_weights/hybrid_final/
