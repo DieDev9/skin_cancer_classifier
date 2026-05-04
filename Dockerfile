@@ -1,0 +1,31 @@
+# Imagen base oficial de Python slim (ligera)
+FROM python:3.12-slim
+
+# Evita que Python genere archivos .pyc y activa logs en tiempo real
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Directorio de trabajo dentro del contenedor
+WORKDIR /app
+
+# Instalar dependencias del sistema necesarias para torch y PIL
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libglib2.0-0 \
+    libgl1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar e instalar dependencias Python primero (mejor caché de Docker)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar el resto del proyecto (sin model_weights si usas volumen)
+COPY app/ ./app/
+COPY model_weights/ ./model_weights/
+COPY .env .env
+
+# Puerto que expone FastAPI
+EXPOSE 8000
+
+# Comando de arranque (sin --reload en producción)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

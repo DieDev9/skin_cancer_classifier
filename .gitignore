@@ -1,27 +1,16 @@
-# Entornos virtuales de Python
+# Entorno virtual
+.venv/
 venv/
-env/
+
+# Cache de Python
 __pycache__/
-.env.local
+*.pyc
 
-# Dependencias de Node (Frontend)
-node_modules/
-
-# PyInstaller - solo ignorar exe y temporales, no el frontend/dist
-build/
-dist/SkinCancerClassifier.exe
-*.log
-
-# Archivos de entorno
+# Variables de entorno
 .env
 
-# Modelos
-*.h5
-*.pt
-*.pth
+# Pesos del modelo (demasiado pesados para GitHub)
+model_weights/
 
-# Ignorar pesos del modelo pesado
-backend_api/model_weights/*.zip
-backend_api/model_weights/*.pt
-backend_api/hybrid_final.zip/*.pt
-
+# Scripts temporales
+check_ram.py
