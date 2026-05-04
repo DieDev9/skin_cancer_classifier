@@ -6,11 +6,17 @@ from app.schemas.models import PrediccionMelanoma
 
 app = FastAPI(title="API Diagnóstico Cáncer de Piel (Híbrido)")
 
-# --- MODO DESARROLLO: ABIERTO A TODOS ---
+# --- MODO PRODUCCIÓN: RESTRINGIDO A VERCEL ---
+origenes_permitidos = [
+    "https://tu-proyecto-frontend.vercel.app", # Reemplaza esto con tu URL real de Vercel
+    "http://localhost:5173",                   # Mantenlo para que puedas seguir probando en tu PC
+    "http://localhost:3000"                    # Por si usas Next.js en local
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],         # El comodín mágico que deja pasar a React
-    allow_credentials=False,     # Apagamos esto para que el "*" funcione sin errores
+    allow_origins=origenes_permitidos, # Pasamos la lista exacta
+    allow_credentials=True,            # Esto cambia a True ahora que no usamos "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
