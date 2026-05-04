@@ -15,7 +15,7 @@ COPY backend_api/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend_api/app/ ./app/
-COPY backend_api/model_weights/ ./model_weights/
+
 
 EXPOSE 8000
 
